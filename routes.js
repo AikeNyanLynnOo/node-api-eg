@@ -1,9 +1,44 @@
+// Dotenv
+require("dotenv").config();
+
+// Express
 const express = require("express");
 const router = express.Router();
 
+// Mongo
 const mongojs = require("mongojs");
 const db = mongojs("travel", ["records"]);
+
+// Express-validatior
 const { body, param, validationResult } = require("express-validator");
+
+// JWT
+const jwt = require("jsonwebtoken");
+const secret = process.env.secret;
+
+// Middlewares
+const { auth, adminOnly } = require("./middlewares");
+
+// Custom variables
+const users = [
+  { username: "Alice", password: "password", role: "admin" },
+  { username: "Bob", password: "password", role: "user" },
+];
+
+// Login
+router.post("/login", (req, res) => {
+  const { username, password } = req.body;
+  const user = users.find(
+    (user, index) => user.username === username && user.password === password
+  );
+  if (user) {
+    jwt.sign(user, secret, { expiresIn: "1h" }, (err, token) => {
+      return res.status(200).json({ token });
+    });
+  } else {
+    return res.sendStatus(401);
+  }
+});
 
 // Creating using POST method
 router.post(
@@ -47,7 +82,7 @@ router.put("/records", [body("name").not().isEmpty()], (req, res) => {
 });
 
 // Reading data with filter
-router.get("/people", (req, res) => {
+router.get("/people", auth, (req, res) => {
   const options = req.query;
   const sort = options.sort || {};
   const filter = options.filter || {};
@@ -101,6 +136,7 @@ router.put(
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
+
     db.records.count({ _id: mongojs.ObjectId(_id) }, (err, count) => {
       if (count) {
         const updateRecord = { _id: mongojs.ObjectId(_id), ...req.body };
@@ -121,9 +157,11 @@ router.put(
 router.patch("/records/:id", [param("id").isMongoId()], (req, res) => {
   const _id = req.params.id;
   const errors = validationResult(req);
+
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+
   db.records.count({ _id: mongojs.ObjectId(_id) }, (err, count) => {
     if (count) {
       db.records.update(
@@ -151,9 +189,11 @@ router.patch("/records", [body("name").not().isEmpty()], (req, res) => {
   const options = req.query;
   const filter = options.filter || {};
   const errors = validationResult(req);
+
   if (!errors.isEmpty()) {
     return res.status(400).json({ errors: errors.array() });
   }
+
   db.records.count(filter, (err, count) => {
     if (count) {
       db.records.update(
@@ -183,22 +223,30 @@ router.patch("/records", [body("name").not().isEmpty()], (req, res) => {
 });
 
 // Deleting with ID
-router.delete("/records/:id", [param("id").isMongoId()], (req, res) => {
-  const _id = req.params.id;
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({ errors: errors.array() });
-  }
-  db.records.count({ _id: mongojs.ObjectId(_id) }, (err, count) => {
-    if (count) {
-      db.records.remove({ _id: mongojs.ObjectId(_id) }, (err, data) => {
-        return res.sendStatus(204);
-      });
-    } else {
-      return res.sendStatus(404);
+router.delete(
+  "/records/:id",
+  auth,
+  adminOnly,
+  [param("id").isMongoId()],
+  (req, res) => {
+    const _id = req.params.id;
+    const errors = validationResult(req);
+
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ errors: errors.array() });
     }
-  });
-});
+
+    db.records.count({ _id: mongojs.ObjectId(_id) }, (err, count) => {
+      if (count) {
+        db.records.remove({ _id: mongojs.ObjectId(_id) }, (err, data) => {
+          return res.sendStatus(204);
+        });
+      } else {
+        return res.sendStatus(404);
+      }
+    });
+  }
+);
 
 router.patch("/records", []);
 

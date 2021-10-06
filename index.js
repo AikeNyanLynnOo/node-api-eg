@@ -1,13 +1,32 @@
-const express = require("express");
+// Dotenv
+require('dotenv').config();
 
-const bodyParser = require("body-parser");
+// Express
+const express = require("express");
 const app = express();
 
+// bodyParser
+const bodyParser = require("body-parser");
 app.use(bodyParser.urlencoded({extended : false}));
 app.use(bodyParser.json());
 
-const PORT = 8000;
+// CORS
+const cors = require("cors");
+
+// Routes
 const routes = require("./routes");
+
+// variables
+const PORT = 8000;
+
+// app.use(function (req, res, next) {
+//   res.append("Access-Control-Allow-Origin", "*");
+//   res.append("Access-Control-Allow-Methods", "*");
+//   res.append("Access-Control-Allow-Headers", "*");
+//   next();
+// });
+
+app.use(cors()); // allow all
 
 app.use("/api",routes);
 
